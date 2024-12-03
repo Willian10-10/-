@@ -15,17 +15,31 @@ def productos_admin(request):
     productos = Producto.objects.all()
     return render(request, 'productosAdmin.html', {'productos': productos})
 
+@login_required
+def productos_usuario(request):
+    productos = Producto.objects.filter(creado_por=request.user)
+    return render(request, 'gestorProductos/productosUsuario.html', {'productos': productos})
+
 def lista_productos(request):
     productos = Producto.objects.all()
     categorias = Categoria.objects.all()
     return render(request, 'productos.html', {'productos': productos, 'categorias': categorias})
 
+@login_required
+def lista_productos_usuario(request):
+    if request.user.is_superuser:
+        productos = Producto.objects.all()  # Superusuario ve todos los productos
+    else:
+        productos = Producto.objects.filter(creado_por=request.user)  # Usuarios ven solo sus productos
+    return render(request, 'gestorProductos/productosUsuario.html', {'productos': productos})
 
 # Vista para agregar productos
 def agregar_producto(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
+            producto = form.save(commit=False)
+            producto.creado_por = request.user #asignar el usuario actual
             form.save()  # Guardar el nuevo producto en la base de datos
             return redirect('productosAdmin')  # Redirigir a la lista de productos
     else:
@@ -57,6 +71,23 @@ def editar_producto(request, producto_id):
         form = ProductoForm()
     
     return render(request, 'gestorProductos/agregar_producto.html', {'form': form})
+
+@login_required
+def editar_producto_usuario(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id, creado_por=request.user)  # Filtrar por usuario
+    form = ProductoForm(instance=producto)
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, instance=producto)
+        if form.is_valid():
+            form.save()
+            return redirect('productosUsuario')
+    return render(request, 'gestorProductos/agregar_producto.html', {'form': form})
+
+@login_required
+def eliminar_producto_usuario(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id, creado_por=request.user)  # Filtrar por usuario
+    producto.delete()
+    return redirect('productosUsuario')
 
 
 #vista para mostrar los productos generados en la pagina principal
